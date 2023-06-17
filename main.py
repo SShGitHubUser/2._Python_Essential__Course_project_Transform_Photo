@@ -1,16 +1,19 @@
-import os
+""" Модуль реализует функционал простого графического редактора, который позволяет производить трансформацию
+выбранного графического файла по командам и сохранить результат """
 
+import os
 from PIL import Image
 from PIL.ImageFilter import BLUR, SHARPEN, CONTOUR, DETAIL, EDGE_ENHANCE, EDGE_ENHANCE_MORE, EMBOSS, \
     FIND_EDGES, SMOOTH, SMOOTH_MORE, GaussianBlur, UnsharpMask
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel, QHBoxLayout, \
     QFileDialog, QMainWindow, QDesktopWidget, QListWidget, QGridLayout, QMessageBox, QMenuBar, QMenu, \
     QAction
 
 IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
 SAVE_DIR = 'Modified/'
+TEMP_FILE_NAME = 'image_tmp'
 
 
 class MainWindow(QMainWindow):
@@ -20,11 +23,11 @@ class MainWindow(QMainWindow):
         self.prog_info = None
         self.workdir = ''
         self.file_name = ''
+        self.temp_file_path = ''
         self.image = None
         self.lbl_image = QLabel('Загрузите изображение')
         self.lbl_image.setAlignment(Qt.AlignCenter)
         self.context_menu = QMenu(self.lbl_image)
-        # self.work_image = ImageTransform()
 
         # Инициализируем параметры главного окна
         self.setWindowTitle('Трансформация изображений')
@@ -32,14 +35,13 @@ class MainWindow(QMainWindow):
         self.resize(int(0.75 * screen.width()), int(0.75 * screen.height()))
 
         # Создаём QAction сразу для всей программы
-        # todo: добавить в меню короткие клавиши, enabled и комментарии где чего
         act_open = self.create_action('Выбор директории', self.open_dir, 'Ctrl+O')
         act_save = self.create_action('Сохранить', self.save_image, 'Ctrl+S')
-        # act_save.setEnabled()
         act_exit = self.create_action('Выйти', self.exit_prog, '')
 
         act_left = self.create_action('Left', lambda: self.transform_image('Left'), '')
         act_right = self.create_action('Right', lambda: self.transform_image('Right'), '')
+        act_flip = self.create_action('Flip', lambda: self.transform_image('Flip'), '')
         act_sharp = self.create_action('Sharp', lambda: self.transform_image('Sharp'), '')
         act_blur = self.create_action('Blur', lambda: self.transform_image('Blur'), '')
         act_edge_enhance = self.create_action('Edge enhance', lambda: self.transform_image('Edge enhance'), '')
@@ -47,14 +49,13 @@ class MainWindow(QMainWindow):
                                                    lambda: self.transform_image('Edge enhance more'), '')
         act_smooth = self.create_action('Smooth', lambda: self.transform_image('Smooth'), '')
         act_smooth_more = self.create_action('Smooth more', lambda: self.transform_image('Smooth more'), '')
-        act_b_w = self.create_action('B/W', lambda: self.transform_image('B/W'), '')
         act_contour = self.create_action('Contour', lambda: self.transform_image('Contour'), '')
-        act_flip = self.create_action('Flip', lambda: self.transform_image('Flip'), '')
         act_emboss = self.create_action('Emboss', lambda: self.transform_image('Emboss'), '')
         act_gaussian_blur = self.create_action('Gaussian blur', lambda: self.transform_image('Gaussian blur'), '')
         act_unsharp_mask = self.create_action('Unsharp mask', lambda: self.transform_image('Unsharp mask'), '')
         act_detail = self.create_action('Detail', lambda: self.transform_image('Detail'), '')
         act_find_edges = self.create_action('Find edges', lambda: self.transform_image('Find edges'), '')
+        act_b_w = self.create_action('B/W', lambda: self.transform_image('B/W'), '')
 
         act_about = self.create_action('О программе', self.show_info, '')
 
@@ -174,16 +175,21 @@ class MainWindow(QMainWindow):
             self.lst_files.clear()
             self.lst_files.addItems(self.filter_image(os.listdir(self.workdir)))
 
+    def load_image(self, image_path):
+        self.lbl_image.hide()
+        self.image = Image.open(image_path)
+        pixmap = QPixmap(image_path)
+        pixmap = pixmap.scaled(self.lbl_image.width(), self.lbl_image.height(), Qt.KeepAspectRatio)
+        self.lbl_image.setPixmap(pixmap)
+        self.lbl_image.show()
+
     def show_chosen_image(self):
         if self.lst_files.currentRow() >= 0:
-            self.lbl_image.hide()
+            self.delete_temp_file()
             self.file_name = self.lst_files.currentItem().text()
-            full_path = os.path.join(self.workdir, self.file_name)
-            self.image = Image.open(full_path)
-            pixmap = QPixmap(full_path)
-            pixmap = pixmap.scaled(self.lbl_image.width(), self.lbl_image.height(), Qt.KeepAspectRatio)
-            self.lbl_image.setPixmap(pixmap)
-            self.lbl_image.show()
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            self.temp_file_path = os.path.join(script_dir, TEMP_FILE_NAME + os.path.splitext(self.file_name)[1])
+            self.load_image(os.path.join(self.workdir, self.file_name))
 
     def save_image(self):
         full_path = os.path.join(self.workdir, SAVE_DIR)
@@ -191,44 +197,39 @@ class MainWindow(QMainWindow):
             os.mkdir(full_path)
         self.image.save(os.path.join(full_path, self.file_name))
 
+    def reload_image(self):
+        self.image.save(self.temp_file_path)
+        self.load_image(self.temp_file_path)
+
+    def delete_temp_file(self):
+        if self.temp_file_path:
+            self.image.close()
+            os.remove(self.temp_file_path)
+
     def exit_prog(self):
+        self.delete_temp_file()
         self.close()
 
     def transform_image(self, command):
-        if command == 'Left':
-            self.image = self.image.transpose(Image.ROTATE_90)
-        if command == 'Right':
-            self.image = self.image.transpose(Image.ROTATE_270)
-        if command == 'Sharp':
-            self.image = self.image.filter(SHARPEN)
-        if command == 'Blur':
-            self.image = self.image.filter(BLUR)
-        if command == 'Edge enhance':
-            self.image = self.image.filter(EDGE_ENHANCE)
-        if command == 'Edge enhance more':
-            self.image = self.image.filter(EDGE_ENHANCE_MORE)
-        if command == 'Smooth':
-            self.image = self.image.filter(SMOOTH)
-        if command == 'Smooth more':
-            self.image = self.image.filter(SMOOTH_MORE)
-        if command == 'B/W':
-            self.image = self.image.convert("L")
-        if command == 'Contour':
-            self.image = self.image.filter(CONTOUR)
-        if command == 'Flip':
-            self.image = self.image.transpose(Image.FLIP_LEFT_RIGHT)
-        if command == 'Emboss':
-            self.image = self.image.filter(EMBOSS)
-        if command == 'Gaussian blur':
-            self.image = self.image.filter(GaussianBlur)
-        if command == 'Unsharp mask':
-            self.image = self.image.filter(UnsharpMask)
-        if command == 'Detail':
-            self.image = self.image.filter(DETAIL)
-        if command == 'Find edges':
-            self.image = self.image.filter(FIND_EDGES)
-        self.save_image()
-        pass
+        commands = {'Left': self.image.transpose(Image.ROTATE_90),
+                    'Right': self.image.transpose(Image.ROTATE_270),
+                    'Sharp': self.image.filter(SHARPEN),
+                    'Blur': self.image.filter(BLUR),
+                    'Edge enhance': self.image.filter(EDGE_ENHANCE),
+                    'Edge enhance more': self.image.filter(EDGE_ENHANCE_MORE),
+                    'Smooth': self.image.filter(SMOOTH),
+                    'Smooth more': self.image.filter(SMOOTH_MORE),
+                    'B/W': self.image.convert("L"),
+                    'Contour': self.image.filter(CONTOUR),
+                    'Flip': self.image.transpose(Image.FLIP_LEFT_RIGHT),
+                    'Emboss': self.image.filter(EMBOSS),
+                    'Gaussian blur': self.image.filter(GaussianBlur),
+                    'Unsharp mask': self.image.filter(UnsharpMask),
+                    'Detail': self.image.filter(DETAIL),
+                    'Find edges': self.image.filter(FIND_EDGES)
+                    }
+        self.image = commands.get(command)
+        self.reload_image()
 
     def show_info(self):
         self.prog_info = QMessageBox()
