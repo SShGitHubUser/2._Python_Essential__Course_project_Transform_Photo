@@ -2,11 +2,13 @@
 выбранного графического файла по командам и сохранить результат """
 
 import os
+import typing
+
 from PIL import Image
 from PIL.ImageFilter import BLUR, SHARPEN, CONTOUR, DETAIL, EDGE_ENHANCE, EDGE_ENHANCE_MORE, EMBOSS, \
     FIND_EDGES, SMOOTH, SMOOTH_MORE, GaussianBlur, UnsharpMask
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtGui import QPixmap, QCloseEvent
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLabel, QHBoxLayout, \
     QFileDialog, QMainWindow, QDesktopWidget, QListWidget, QGridLayout, QMessageBox, QMenuBar, QMenu, \
     QAction
@@ -17,7 +19,49 @@ TEMP_FILE_NAME = 'image_tmp'
 
 
 class MainWindow(QMainWindow):
+    """ Класс реализует интерфейс и функциональность графического редактора
+    Attributes:
+        self.prog_info (QMessageBox): Окно с информацией о программе About
+        self.workdir (str): рабочая директория с графическими файлами
+        self.file_name (str): имя редактируемого файла
+        self.temp_file_path (str): путь к временному файлу
+        self.image (Image): редактируемое изображение
+        self.lbl_image (QLabel): метка, содержащая изображение в формате QPixmap
+        self.context_menu (QMenu): контекстное меню с командами редактирования
+    Methods:
+        __init__(self):
+            инициализирует атрибуты заданными значениями
+        create_action(self, text: str, function: callable, shortcut: str) -> QAction:
+            создает объект QAction с заданными свойствами
+        create_button(action: QAction) -> QPushButton:
+            создает объект QPushButton со связанным объектом QAction
+        show_context_menu(self, position: QPoint):
+            создает и отображает контекстное меню с командами трансформации изображения
+        filter_image(files: list) -> list:
+            фильтрует список файлов в директории и возвращает список графических файлов
+        open_dir(self):
+            выбор рабочей директории
+        load_image(self, image_path: str):
+            загружает и отображает выбранный графический файл
+        save_image(self):
+            сохраняет трансформированное изображение в директории по умолчанию
+        show_chosen_image(self):
+            реализует выбор изображения в рабочей директории
+        reload_image(self):
+            запись и перезагрузка временного файла после трансформации
+        delete_temp_file(self):
+            удаление временного фала
+        exit_prog(self):
+            завершение работы программы
+        transform_image(self, command: str):
+            реализует трансформацию изображения в соответствии с командой
+        show_info(self):
+            отображает окно с информацией о программе
+    """
+
     def __init__(self):
+        """ Инициализирует атрибуты класса значениями по умолчанию.
+            Создает и компонует элементы пользовательского интерфейса """
         super().__init__()
 
         self.prog_info = None
@@ -146,7 +190,16 @@ class MainWindow(QMainWindow):
         widget.setLayout(lo_main)
         self.setCentralWidget(widget)
 
-    def create_action(self, text: str, function, shortcut: str) -> QAction:
+    # def initUI(self):
+
+    def create_action(self, text: str, function: typing.Callable, shortcut: str) -> QAction:
+        """ Создает объект QAction с заданными свойствами
+        Arguments:
+            text (str): текстовая метка
+            function (typing.Callable): функция, вызываемая при срабатывании действия
+            shortcut (str): устанавливает горячую клавишу действия
+        Returns:
+            QAction - объект QAction """
         action = QAction(text, self)
         action.triggered.connect(function)
         if shortcut:
@@ -155,27 +208,44 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def create_button(action: QAction) -> QPushButton:
+        """ Создает объект QPushButton со связанным объектом QAction
+        Arguments:
+            action (QAction): связанное действие
+        Returns:
+            QPushButton - объект QPushButton (кнопка) """
         button = QPushButton(action.text())
         button.addAction(action)
         button.clicked.connect(action.trigger)
         return button
 
-    def show_context_menu(self, position):
+    def show_context_menu(self, position: QPoint):
+        """ Создает контекстное меню с командами трансформации изображения
+        Arguments:
+            position (QPoint): позиция контекстного меню относительно окна приложения """
         global_position = self.lbl_image.mapToGlobal(position)
         self.context_menu.exec_(global_position)
 
     @staticmethod
     def filter_image(files: list) -> list:
+        """ Фильтрует список файлов в директории, и возвращает список графических файлов
+        Arguments:
+            files (list): список файлов в рабочей директории
+        Returns:
+            list - список графических файлов в рабочей директории """
         return [file_name for file_name in files if str(os.path.splitext(file_name)[1]).lower() in IMAGE_EXT]
 
     def open_dir(self):
+        """ Реализует выбор рабочей директории """
         dir_name = QFileDialog.getExistingDirectory(self, 'Выбрать рабочую директорию')
         if dir_name:
             self.workdir = dir_name.replace('/', '\\')
             self.lst_files.clear()
             self.lst_files.addItems(self.filter_image(os.listdir(self.workdir)))
 
-    def load_image(self, image_path):
+    def load_image(self, image_path: str):
+        """ Загружает и отображает выбранный графический файл
+        Arguments:
+            image_path (str): путь к выбранному файлу """
         self.lbl_image.hide()
         self.image = Image.open(image_path)
         pixmap = QPixmap(image_path)
@@ -183,7 +253,15 @@ class MainWindow(QMainWindow):
         self.lbl_image.setPixmap(pixmap)
         self.lbl_image.show()
 
+    def save_image(self):
+        """ Сохраняет трансформированное изображение в директории по умолчанию """
+        full_path = os.path.join(self.workdir, SAVE_DIR)
+        if not (os.path.exists(full_path) or os.path.isdir(full_path)):
+            os.mkdir(full_path)
+        self.image.save(os.path.join(full_path, self.file_name))
+
     def show_chosen_image(self):
+        """ Реализует выбор изображения в рабочей директории """
         if self.lst_files.currentRow() >= 0:
             self.delete_temp_file()
             self.file_name = self.lst_files.currentItem().text()
@@ -191,26 +269,25 @@ class MainWindow(QMainWindow):
             self.temp_file_path = os.path.join(script_dir, TEMP_FILE_NAME + os.path.splitext(self.file_name)[1])
             self.load_image(os.path.join(self.workdir, self.file_name))
 
-    def save_image(self):
-        full_path = os.path.join(self.workdir, SAVE_DIR)
-        if not (os.path.exists(full_path) or os.path.isdir(full_path)):
-            os.mkdir(full_path)
-        self.image.save(os.path.join(full_path, self.file_name))
-
     def reload_image(self):
+        """ Запись и перезагрузка временного файла после трансформации """
         self.image.save(self.temp_file_path)
         self.load_image(self.temp_file_path)
 
     def delete_temp_file(self):
+        """ Удаляет временный файл """
         if self.temp_file_path:
             self.image.close()
             os.remove(self.temp_file_path)
 
     def exit_prog(self):
-        self.delete_temp_file()
+        """ Завершение работы программы """
         self.close()
 
-    def transform_image(self, command):
+    def transform_image(self, command: str):
+        """ Реализует трансформацию изображения в соответствии с командой
+        Arguments:
+            command (str): команда трансформации изображения """
         commands = {'Left': self.image.transpose(Image.ROTATE_90),
                     'Right': self.image.transpose(Image.ROTATE_270),
                     'Sharp': self.image.filter(SHARPEN),
@@ -232,14 +309,23 @@ class MainWindow(QMainWindow):
         self.reload_image()
 
     def show_info(self):
+        """ Отображает окно с информацией о программе """
         self.prog_info = QMessageBox()
         self.prog_info.setWindowTitle('О программе')
         self.prog_info.setText('Эта программа предназначена\nдля трансформации изображений')
         self.prog_info.setWindowModality(Qt.ApplicationModal)
         self.prog_info.exec_()
 
+    def closeEvent(self, event: QCloseEvent):
+        """ Реализует трансформацию изображения в соответствии с командой
+        Arguments:
+            event (QCloseEvent): событие закрытия главного окна приложения """
+        self.delete_temp_file()
+        event.accept()
+
 
 def main():
+    """ Основная функция, которая инициализирует и открывает главное окно программы """
     app = QApplication([])
     window = MainWindow()
     window.show()
