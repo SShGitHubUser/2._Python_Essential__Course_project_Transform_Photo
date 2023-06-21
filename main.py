@@ -21,16 +21,18 @@ TEMP_FILE_NAME = 'image_tmp'
 class MainWindow(QMainWindow):
     """ Класс реализует интерфейс и функциональность графического редактора
     Attributes:
-        self.prog_info (QMessageBox): Окно с информацией о программе About
         self.workdir (str): рабочая директория с графическими файлами
         self.file_name (str): имя редактируемого файла
         self.temp_file_path (str): путь к временному файлу
         self.image (Image): редактируемое изображение
+        self.lst_files (QListWidget): объект для отображения списка графических файлов в рабочей директории
         self.lbl_image (QLabel): метка, содержащая изображение в формате QPixmap
         self.context_menu (QMenu): контекстное меню с командами редактирования
     Methods:
         __init__(self):
             инициализирует атрибуты заданными значениями
+        init_ui(self):
+            создает и инициализирует элементы пользовательского интерфейса
         create_action(self, text: str, function: callable, shortcut: str) -> QAction:
             создает объект QAction с заданными свойствами
         create_button(action: QAction) -> QPushButton:
@@ -57,6 +59,8 @@ class MainWindow(QMainWindow):
             реализует трансформацию изображения в соответствии с командой
         show_info(self):
             отображает окно с информацией о программе
+        closeEvent(self, event: QCloseEvent):
+            перехватывает событие закрытия главного окна приложения и удаляет временный файл
     """
 
     def __init__(self):
@@ -64,14 +68,19 @@ class MainWindow(QMainWindow):
             Создает и компонует элементы пользовательского интерфейса """
         super().__init__()
 
-        self.prog_info = None
         self.workdir = ''
         self.file_name = ''
         self.temp_file_path = ''
         self.image = None
+        self.lst_files = None
         self.lbl_image = QLabel('Загрузите изображение')
         self.lbl_image.setAlignment(Qt.AlignCenter)
         self.context_menu = QMenu(self.lbl_image)
+
+        self.init_ui()
+
+    def init_ui(self):
+        """ Создает и инициализирует элементы пользовательского интерфейса """
 
         # Инициализируем параметры главного окна
         self.setWindowTitle('Трансформация изображений')
@@ -104,8 +113,7 @@ class MainWindow(QMainWindow):
         act_about = self.create_action('О программе', self.show_info, '')
 
         # Добавляем главное меню
-        menu_main = QMenuBar(self)
-        self.setMenuBar(menu_main)
+        self.setMenuBar(QMenuBar(self))
         # создаем меню Файл
         menu_file = QMenu('Файл', self)
         menu_file.addActions([act_open, act_save, act_exit])
@@ -116,9 +124,9 @@ class MainWindow(QMainWindow):
              act_smooth_more, act_b_w, act_contour, act_flip, act_emboss, act_gaussian_blur, act_unsharp_mask,
              act_detail, act_find_edges])
         # добавляем все подменю в главное меню
-        menu_main.addMenu(menu_file)
-        menu_main.addMenu(menu_edit)
-        menu_main.addAction(act_about)
+        self.menuBar().addMenu(menu_file)
+        self.menuBar().addMenu(menu_edit)
+        self.menuBar().addAction(act_about)
 
         # Добавляем контекстное меню
         self.context_menu.addActions(
@@ -130,51 +138,32 @@ class MainWindow(QMainWindow):
         self.lbl_image.customContextMenuRequested.connect(self.show_context_menu)
 
         # Создаем макет левой части окна - для выбора графических файлов
-        btn_dir = QPushButton('Выбор директории')
-        btn_dir.clicked.connect(self.open_dir)
+        lo_left = QVBoxLayout()
+        lo_left.addWidget(self.create_button(act_open))
         self.lst_files = QListWidget()
         self.lst_files.currentRowChanged.connect(self.show_chosen_image)
-        lo_left = QVBoxLayout()
-        lo_left.addWidget(btn_dir)
         lo_left.addWidget(self.lst_files)
 
         # Создаем макет правой части - для выбора отображения выбранного файла и кнопок преобразования
 
         # Создаем кнопки для преобразования изображения и добавляем их в соответствующий макет
-        btn_left = self.create_button(act_left)
-        btn_right = self.create_button(act_right)
-        btn_sharp = self.create_button(act_sharp)
-        btn_blur = self.create_button(act_blur)
-        btn_edge_enhance = self.create_button(act_edge_enhance)
-        btn_edge_enhance_more = self.create_button(act_edge_enhance_more)
-        btn_smooth = self.create_button(act_smooth)
-        btn_smooth_more = self.create_button(act_smooth_more)
-        btn_b_w = self.create_button(act_b_w)
-        btn_contour = self.create_button(act_contour)
-        btn_flip = self.create_button(act_flip)
-        btn_emboss = self.create_button(act_emboss)
-        btn_gaussian_blur = self.create_button(act_gaussian_blur)
-        btn_unsharp_mask = self.create_button(act_unsharp_mask)
-        btn_detail = self.create_button(act_detail)
-        btn_find_edges = self.create_button(act_find_edges)
-
         lo_transform = QGridLayout()
-        lo_transform.addWidget(btn_left, 0, 0)
-        lo_transform.addWidget(btn_right, 1, 0)
-        lo_transform.addWidget(btn_sharp, 0, 1)
-        lo_transform.addWidget(btn_blur, 1, 1)
-        lo_transform.addWidget(btn_edge_enhance, 0, 2)
-        lo_transform.addWidget(btn_edge_enhance_more, 1, 2)
-        lo_transform.addWidget(btn_smooth, 0, 3)
-        lo_transform.addWidget(btn_smooth_more, 1, 3)
-        lo_transform.addWidget(btn_b_w, 0, 4)
-        lo_transform.addWidget(btn_contour, 1, 4)
-        lo_transform.addWidget(btn_flip, 0, 5)
-        lo_transform.addWidget(btn_emboss, 1, 5)
-        lo_transform.addWidget(btn_gaussian_blur, 0, 6)
-        lo_transform.addWidget(btn_unsharp_mask, 1, 6)
-        lo_transform.addWidget(btn_detail, 0, 7)
-        lo_transform.addWidget(btn_find_edges, 1, 7)
+        lo_transform.addWidget(self.create_button(act_left), 0, 0)
+        lo_transform.addWidget(self.create_button(act_right), 1, 0)
+        lo_transform.addWidget(self.create_button(act_sharp), 0, 1)
+        lo_transform.addWidget(self.create_button(act_blur), 1, 1)
+        lo_transform.addWidget(self.create_button(act_edge_enhance), 0, 2)
+        lo_transform.addWidget(self.create_button(act_edge_enhance_more), 1, 2)
+        lo_transform.addWidget(self.create_button(act_smooth), 0, 3)
+        lo_transform.addWidget(self.create_button(act_smooth_more), 1, 3)
+        lo_transform.addWidget(self.create_button(act_b_w), 0, 4)
+        lo_transform.addWidget(self.create_button(act_contour), 1, 4)
+        lo_transform.addWidget(self.create_button(act_flip), 0, 5)
+        lo_transform.addWidget(self.create_button(act_emboss), 1, 5)
+        lo_transform.addWidget(self.create_button(act_gaussian_blur), 0, 6)
+        lo_transform.addWidget(self.create_button(act_unsharp_mask), 1, 6)
+        lo_transform.addWidget(self.create_button(act_detail), 0, 7)
+        lo_transform.addWidget(self.create_button(act_find_edges), 1, 7)
 
         # Добавляем в макет правой части метку для изображения и кнопки для преобразования
         lo_right = QVBoxLayout()
@@ -189,8 +178,6 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         widget.setLayout(lo_main)
         self.setCentralWidget(widget)
-
-    # def initUI(self):
 
     def create_action(self, text: str, function: typing.Callable, shortcut: str) -> QAction:
         """ Создает объект QAction с заданными свойствами
@@ -308,18 +295,22 @@ class MainWindow(QMainWindow):
         self.image = commands.get(command)
         self.reload_image()
 
-    def show_info(self):
+    @staticmethod
+    def show_info():
         """ Отображает окно с информацией о программе """
-        self.prog_info = QMessageBox()
-        self.prog_info.setWindowTitle('О программе')
-        self.prog_info.setText('Эта программа предназначена\nдля трансформации изображений')
-        self.prog_info.setWindowModality(Qt.ApplicationModal)
-        self.prog_info.exec_()
+        prog_info = QMessageBox()
+        prog_info.setWindowTitle('О программе')
+        prog_info.setText('Эта программа предназначена\nдля трансформации изображений')
+        prog_info.setWindowModality(Qt.ApplicationModal)
+        prog_info.exec_()
 
     def closeEvent(self, event: QCloseEvent):
-        """ Реализует трансформацию изображения в соответствии с командой
+        """ Перехватывает событие закрытия главного окна приложения и удаляет временный файл
         Arguments:
             event (QCloseEvent): событие закрытия главного окна приложения """
+
+        # pylint: disable=C0103
+
         self.delete_temp_file()
         event.accept()
 

@@ -1,11 +1,11 @@
-# 3._Python_Essential__Course_project
+# 2._Python_Essential__Course_project_Transform_Photo
 
-### Описание
-Модуль main.py реализует функционал Telegram чат-бота, сообщающего погоду в заданном городе.
-Текущие погодные условия запрашиваются с сайта OpenWeatherMap.org по API
-
-Для получения списка сообщений с сервера Telegram, для запроса погоды с сайта OpenWeatherMap.org по API, а также
-для отправления ответных сообщений в Telegram используются асинхронные функции  
+### Описание проекта
+Модуль main.py реализует функционал простого редактора изображений, который позволяет преобразовывать графические 
+файлы с помощью 16 предопределенных команд трансформации, таких как поворот по или против часовой стрелки, отражение,
+размытие и т.п.
+Пользовательский графический интерфейс программы создан с помощью фреймворка PyQt5. Работа с растровой графикой,
+преобразование графических файлов реализовано с помощью библиотеки Python Imaging Library (PIL).
 
 ### Проект на GitHub
-https://github.com/Studies-in-specialty-Python-Developer/3._Python_Essential__Course_project.git
+https://github.com/Studies-in-specialty-Python-Developer/2._Python_Essential__Course_project_Transform_Photo
