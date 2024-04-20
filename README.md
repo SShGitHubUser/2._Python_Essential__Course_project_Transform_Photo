@@ -1,4 +1,4 @@
-# 2._Python_Essential__Course_project_Transform_Photo
+# 3._Python_Essential__Course_project_Transform_Photo
 
 ### Описание проекта
 Модуль main.py реализует функционал простого редактора изображений, который позволяет преобразовывать графические 
